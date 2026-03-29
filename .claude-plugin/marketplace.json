@@ -1,0 +1,18 @@
+{
+  "name": "whats-new-marketplace",
+  "owner": {
+    "name": "Brad Feld"
+  },
+  "metadata": {
+    "description": "Claude Code release notes cross-referencing plugin",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "whats-new",
+      "source": ".",
+      "description": "Cross-reference Claude Code release notes against your personal config — surfaces what actually affects your setup, recommends new features worth adopting, and summarizes the rest",
+      "version": "1.0.0"
+    }
+  ]
+}
