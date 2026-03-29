@@ -10,15 +10,19 @@ Instead of reading through every changelog entry, `/whats-new` scans your `~/.cl
 
 ## Install
 
+**Step 1: Add the marketplace**
+
+```bash
+claude plugins marketplace add https://github.com/bradfeld/whats-new-plugin.git
+```
+
+**Step 2: Install the plugin**
+
 ```bash
 claude plugins install whats-new
 ```
 
-Or install directly from this repo:
-
-```bash
-claude plugins install --url https://github.com/bradfeld/whats-new-plugin.git
-```
+Then restart Claude Code to load the new command.
 
 ## Usage
 
