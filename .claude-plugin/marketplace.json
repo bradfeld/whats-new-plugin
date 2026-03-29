@@ -9,7 +9,7 @@
   },
   "plugins": [
     {
-      "name": "whats-new",
+      "name": "release-radar",
       "source": {
         "source": "url",
         "url": "https://github.com/bradfeld/whats-new-plugin.git"

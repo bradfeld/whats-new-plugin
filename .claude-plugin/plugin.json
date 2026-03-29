@@ -1,5 +1,5 @@
 {
-  "name": "whats-new",
+  "name": "release-radar",
   "description": "Cross-reference Claude Code release notes against your personal config — surfaces what actually affects your setup, recommends new features worth adopting, and summarizes the rest",
   "version": "1.0.0",
   "author": { "name": "Brad Feld" },
