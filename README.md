@@ -19,10 +19,10 @@ claude plugins marketplace add https://github.com/bradfeld/whats-new-plugin.git
 **Step 2: Install the plugin**
 
 ```bash
-claude plugins install whats-new
+claude plugins install release-radar
 ```
 
-Then restart Claude Code to load the new command.
+Then restart Claude Code to load the new `/whats-new` command.
 
 ## Usage
 
