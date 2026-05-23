@@ -99,7 +99,7 @@ Read and summarize as structured plain text. Do not dump raw file contents.
 
 **5a. Hooks (from settings.json)** — Use Read tool on `~/.claude/settings.json`. For each key in the `hooks` object, record the lifecycle event name and the script filenames extracted from each hook's `command` field.
 
-**5b. Hook files on disk** — Use Glob to list `~/.claude/hooks/*.sh`. List the filenames. This catches scripts that exist on disk but are not registered in settings.json.
+**5b. Hook and helper scripts on disk** — Use Glob to list `~/.claude/hooks/*.sh` and `~/.claude/scripts/*.sh`. List the filenames from each path separately. This catches scripts that exist on disk but are not registered in settings.json, including ad-hoc helpers under `scripts/` that hooks call into.
 
 **5c. Env vars** — From the `env` object in `settings.json`, list the key names only (not values).
 
@@ -159,7 +159,7 @@ Match the release-note text against the table below. If no row matches, generate
 |---|---|
 | "sandbox" + "worktree" / "main repo" / "shared `.git`" | Run `git worktree list` to enumerate worktrees. `grep -rln "<main-repo-name>" ~/.claude/hooks/ ~/.claude/scripts/` and inspect for writes targeting the main repo root or its `.git/{hooks,config}` from worktree contexts. Absence of such writes = verified safe. |
 | "otelHeadersHelper" / "otel.*helper" | `grep -rE "otelHeadersHelper" ~/.claude/settings.json ~/.claude/hooks/ ~/.claude/scripts/`. No match = N/A; demote to GENERAL. |
-| "Bash tool" + path/permission/cd | `grep -rE "<affected-pattern>" ~/.claude/hooks/`. Cross-check `permissions.allow` / `permissions.deny` in settings.json for matching rules. |
+| "Bash tool" + path/permission/cd | Extract the specific pattern from the release note (a path, a flag, a command). Substitute into `grep -rE "<pattern>" ~/.claude/hooks/ ~/.claude/scripts/`. Cross-check `permissions.allow` / `permissions.deny` in settings.json for matching rules. |
 | "PowerShell" / "Windows" / "`.exe`" / "Windows-only" | Platform check: `uname` — if Darwin or Linux, mark N/A and demote to GENERAL. |
 | "managed setting" / "Enterprise" / "managed-mcp.json" | Check for managed-settings markers: `ls /Library/Application\ Support/ClaudeCode/ 2>/dev/null`; absent = N/A. |
 | "skill frontmatter" / "agent frontmatter" / "`effort:`" / "`name:`" | Glob the inventory's skills/agents lists; grep for the affected frontmatter field. Confirm at least one file uses it before claiming impact. |
@@ -183,13 +183,13 @@ If a recipe requires writing (it shouldn't — verification is read-only), STOP 
 |---|---|---|
 | Verification surfaces a real exposure, conflict, or required change | IMPACT-ACTIONABLE | Keep in IMPACT section with specific action steps |
 | Fix applies to user's setup but no action needed (security tightening, behavior improvement) | IMPACT-VERIFIED-SAFE | Keep in IMPACT section with "Verified safe: <reason>" |
-| Verification proves the change does not affect this config | IMPACT-NOT-APPLICABLE | Demote to GENERAL, mention briefly in one line |
+| Verification proves the change does not affect this config | IMPACT-NOT-APPLICABLE (i.e., demoted to GENERAL) | Move to General section, mention briefly in one line |
 
 Record the recipe summary and the finding alongside each IMPACT item — they appear in the final report.
 
-### 6.5d — Multi-IMPACT runs
+### 6.5d — Parallel verification
 
-If 5+ items end up as IMPACT after Step 6, run verifications in parallel where the recipes are independent (different config surfaces). Bundle Bash/Grep calls in a single message when possible to minimize round-trips. Do NOT skip verification for any IMPACT to save time — false alarms in this report are more expensive than the extra tool calls.
+When 2+ IMPACT items have independent verification recipes (touching different config surfaces), bundle their Bash/Grep calls in a single message so they run in parallel. There is no count threshold below which parallelization is skipped — even 2 verifications run faster as one batch than two sequential round-trips. Do NOT skip verification for any IMPACT to save time — false alarms in this report are more expensive than the extra tool calls.
 
 ## Step 7 — Output the Report
 
@@ -224,7 +224,7 @@ If present, list each:
 
 ### General
 
-One bullet per GENERAL item, grouped under a `**v{version}**` subheading. If 20 or more versions are covered, use strict one-liners (no sub-bullets, no elaboration).
+One bullet per GENERAL item, grouped under a `**v{version}**` subheading. **Include items demoted from IMPACT-NOT-APPLICABLE in Step 6.5** — they aren't dropped; they move here. If 20 or more versions are covered, use strict one-liners (no sub-bullets, no elaboration).
 
 ---
 
