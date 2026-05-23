@@ -10,9 +10,10 @@ effort: medium
 If the argument is `?` or `--help`, print this block and STOP — do not execute any steps:
 
 ```
-Cross-reference Claude Code release notes against your personal config.
-Surfaces what changed that affects your setup, recommends new features
-worth adopting, and summarizes the rest.
+Cross-reference Claude Code release notes against your personal config,
+then verify each impact item with concrete tool calls before reporting.
+Surfaces what changed that actually requires action, recommends new
+features worth adopting, and summarizes the rest.
 
 Usage: /whats-new [version]
 
@@ -25,6 +26,10 @@ Examples:
   /whats-new                  Full analysis since last review
   /whats-new 2.1.83           Analyze a specific version
   /whats-new ?                Show this help
+
+Each IMPACT item is verified with grep / read / file-check before being
+reported as actionable. Items that the verification proves don't affect
+your config are demoted to GENERAL — no false alarms.
 ```
 
 ---
@@ -142,6 +147,50 @@ For each item in the collected release notes, classify it into exactly one categ
 
 3. **GENERAL** — Everything else. Summarize in one line.
 
+## Step 6.5 — Verify each IMPACT before reporting
+
+For every item classified as IMPACT in Step 6, run a verification pass before final reporting. The goal is to convert "this might affect your config" into a concrete, evidence-backed claim before it lands in the report.
+
+### 6.5a — Derive a verification recipe
+
+Match the release-note text against the table below. If no row matches, generate an inline recipe based on the inventory from Step 5 and the specific config element(s) named in the IMPACT.
+
+| Release-note pattern | Verification recipe |
+|---|---|
+| "sandbox" + "worktree" / "main repo" / "shared `.git`" | Run `git worktree list` to enumerate worktrees. `grep -rln "<main-repo-name>" ~/.claude/hooks/ ~/.claude/scripts/` and inspect for writes targeting the main repo root or its `.git/{hooks,config}` from worktree contexts. Absence of such writes = verified safe. |
+| "otelHeadersHelper" / "otel.*helper" | `grep -rE "otelHeadersHelper" ~/.claude/settings.json ~/.claude/hooks/ ~/.claude/scripts/`. No match = N/A; demote to GENERAL. |
+| "Bash tool" + path/permission/cd | `grep -rE "<affected-pattern>" ~/.claude/hooks/`. Cross-check `permissions.allow` / `permissions.deny` in settings.json for matching rules. |
+| "PowerShell" / "Windows" / "`.exe`" / "Windows-only" | Platform check: `uname` — if Darwin or Linux, mark N/A and demote to GENERAL. |
+| "managed setting" / "Enterprise" / "managed-mcp.json" | Check for managed-settings markers: `ls /Library/Application\ Support/ClaudeCode/ 2>/dev/null`; absent = N/A. |
+| "skill frontmatter" / "agent frontmatter" / "`effort:`" / "`name:`" | Glob the inventory's skills/agents lists; grep for the affected frontmatter field. Confirm at least one file uses it before claiming impact. |
+| "/<command>" referencing a builtin slash command | Check for user override: `ls ~/.claude/commands/<command>.md 2>/dev/null`. Override present → IMPACT-ACTIONABLE (review for conflict); absent → typically GENERAL. |
+| "MCP" + specific server name | Check `enabledPlugins` + any `.mcp.json` files for that server. Absent = N/A. |
+| "hook" + lifecycle event | Grep the `hooks` block of settings.json for that event name. Empty list for that event = N/A. |
+| "permission" + pattern | Grep `permissions.allow` and `permissions.deny` for the pattern. |
+| "remote session" / "Remote Control" / "claude.ai" | Check whether user has remote-session usage signals (e.g., `~/.claude/remote-sessions/` or similar). Absent = N/A. |
+| "`/<command>`" output formatting / display fix | Pure UI fix — verify by reading the inventory's `outputStyle` and `statusLine` only; almost always N/A. |
+| (no row matches) | Generate inline: name the specific config element from the IMPACT, choose the cheapest concrete check (Read / Glob / Grep / Bash), execute it, and capture findings. |
+
+### 6.5b — Execute the recipe
+
+Run the recipe using Bash / Read / Glob / Grep. Capture concrete evidence: file paths, line numbers, counts, presence/absence. Do not skip this step — assertions without evidence are exactly what this stage exists to eliminate.
+
+If a recipe requires writing (it shouldn't — verification is read-only), STOP and flag the recipe as malformed.
+
+### 6.5c — Reclassify based on findings
+
+| Finding | New classification | How to report |
+|---|---|---|
+| Verification surfaces a real exposure, conflict, or required change | IMPACT-ACTIONABLE | Keep in IMPACT section with specific action steps |
+| Fix applies to user's setup but no action needed (security tightening, behavior improvement) | IMPACT-VERIFIED-SAFE | Keep in IMPACT section with "Verified safe: <reason>" |
+| Verification proves the change does not affect this config | IMPACT-NOT-APPLICABLE | Demote to GENERAL, mention briefly in one line |
+
+Record the recipe summary and the finding alongside each IMPACT item — they appear in the final report.
+
+### 6.5d — Multi-IMPACT runs
+
+If 5+ items end up as IMPACT after Step 6, run verifications in parallel where the recipes are independent (different config surfaces). Bundle Bash/Grep calls in a single message when possible to minimize round-trips. Do NOT skip verification for any IMPACT to save time — false alarms in this report are more expensive than the extra tool calls.
+
 ## Step 7 — Output the Report
 
 Print the following three sections in order.
@@ -150,13 +199,14 @@ Print the following three sections in order.
 
 ### Impacts Your Config
 
-List each IMPACT item:
+List each IMPACT-ACTIONABLE and IMPACT-VERIFIED-SAFE item (demoted items go to General):
 
 **v{version}: {release note item title or summary}**
 → Affects: {specific config element name(s)}
-→ Action: {what to check, update, or verify}
+→ Verified: {one-line recipe summary} — {finding}
+→ Action: {actionable steps OR "None needed — verified safe (<reason>)"}
 
-If there are no IMPACT items, print: *(No changes impact your current config.)*
+If there are no IMPACT items after verification, print: *(No changes impact your current config.)*
 
 ---
 

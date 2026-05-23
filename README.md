@@ -8,6 +8,8 @@ Instead of reading through every changelog entry, `/whats-new` scans your `~/.cl
 - **Recommendations** -- new capabilities with a concrete intersection with your setup
 - **General** -- everything else, summarized in one line
 
+Each potential impact is then **verified with concrete tool calls** (grep, file checks, platform detection) before it lands in the final report. Items that the verification proves don't actually affect your config are demoted to General — so the "Impacts Your Config" section only contains things you've confirmed apply to your setup.
+
 ## Install
 
 **Step 1: Add the marketplace**
