@@ -46,14 +46,13 @@ Running `/whats-new 2.1.83` analyzes just that version. This mode does not updat
 
 ### Evolve Config
 
-In the default (since-last-review) mode, after the report `/whats-new` turns the actionable findings into concrete, **opt-in** config edits. It presents them as a numbered list — each with the literal change and a plain-language explanation of what it does for you — and waits:
+In the default (since-last-review) mode, after the report `/whats-new` turns the actionable findings into concrete config edits. **Every candidate is independently fresh-eyes-reviewed before you see it** — a separate reviewer vets each proposed edit (revising or flagging it), and the verdict is folded into the list. It then presents the vetted changes as a numbered list — each with the literal change, a plain-language explanation, and the review's verdict (clean / revised / ⚠ recommends-against) — and waits:
 
 ```
 Reply with numbers to apply ("1 3"), "all", or "none".
-Or "fresheyes" / "fresheyes 1 3" to run an independent review first.
 ```
 
-Nothing is applied without your explicit pick. `fresheyes` dispatches an independent reviewer on the selected proposals and reports back with a plain-language narrative plus a recommendation on whether it has converged or wants another round. Every applied change is validated (`jq` / `bash -n`) and logged to `~/.claude/whats-new-applied.md` — a cumulative record of how your config has evolved release-over-release. Specific-version runs are inspect-only and never modify config.
+Nothing is applied without your explicit pick. Every applied change is validated (`jq` / `bash -n`) and logged to `~/.claude/whats-new-applied.md` — a cumulative record of how your config has evolved release-over-release. Specific-version runs are inspect-only and never modify config.
 
 ## What It Scans
 

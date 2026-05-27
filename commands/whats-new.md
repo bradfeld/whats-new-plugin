@@ -31,10 +31,10 @@ Each IMPACT item is verified with grep / read / file-check before being
 reported as actionable. Items that the verification proves don't affect
 your config are demoted to GENERAL — no false alarms.
 
-In since-last-review mode, after the report it proposes concrete config
-edits as a numbered list (each with a plain-language explanation); reply
-with the numbers to apply, "all", "none", or "fresheyes [numbers]" for an
-independent review first. Applied changes are logged to
+In since-last-review mode, after the report it independently reviews each
+derived config edit, then proposes the vetted changes as a numbered list
+(each with a plain-language explanation and the review's verdict); reply
+with the numbers to apply, "all", or "none". Applied changes are logged to
 ~/.claude/whats-new-applied.md.
 ```
 
@@ -238,7 +238,7 @@ One bullet per GENERAL item, grouped under a `**v{version}**` subheading. **Incl
 
 **Skip this step entirely if `mode = specific-version`.** Specific-version runs are inspect-only — they must not mutate config or the changelog, because Step 8 does not advance tracking in that mode and applying edits would desync the changelog from the last-reviewed version.
 
-This step turns the report into concrete, opt-in config edits. The config evolves only with the user's explicit per-item approval — never auto-apply.
+This step turns the report into concrete config edits. **Every candidate is independently fresh-eyes-reviewed BEFORE it is shown to the user** (7.5c) — vetting is mandatory, not an option the user requests. The config only ever changes with the user's explicit per-item approval — never auto-apply.
 
 ### 7.5a — Collect candidates
 
@@ -250,50 +250,51 @@ Do NOT include IMPACT-VERIFIED-SAFE or GENERAL items — they need no edit. If t
 
 ### 7.5b — Derive concrete edits
 
-For each candidate, determine the exact edit: target file, the literal change (new env key, hook registration, new script, frontmatter field, etc.), and a one-line plain-language implication. Read the target file and confirm it exists before proposing. Never propose an edit you haven't grounded in the actual current file contents.
+For each candidate, determine the exact edit: target file, the literal change (new env key, hook registration, new script, frontmatter field, etc.), and a one-line plain-language implication. **Read the target file and confirm it exists before proposing; confirm the release-note claim against the actual notes. Never propose an edit you haven't grounded in BOTH the real release notes and the current file contents** — fabricated premises (a release note that doesn't say what you think, a file that doesn't exist) are the most common failure mode here.
 
-### 7.5c — Present numbered proposals
+### 7.5c — Fresh-eyes vet EVERY candidate (mandatory)
 
-Print the candidates as a numbered list. Each entry has TWO parts: first the literal technical change, then a plain-language "what this does for you" line written for a medium-technical non-programmer — no jargon, focused on the user/system/config-facing effect:
+This ALWAYS runs. It is not optional and the user does not request it — every derived candidate is reviewed before it reaches the numbered list. For each candidate:
+
+1. Construct a synthetic diff from its 7.5b derivation (the literal before → after change) — nothing is applied yet, so there is no filesystem diff to read.
+2. Dispatch an independent reviewer with the Task tool, pasting that synthetic diff **inline as literal text** (per `mcp-arg-no-substitution.md` — never `$(...)`; if the diff itself contains `$(...)` shell code, include the `LITERAL_DOLLAR_PAREN_OK` sentinel). **Default model: `sonnet`** (matches the platform review-agent convention; the fresh-eyes value is the independent dispatch, not a higher tier — the proposer is Opus, so a Sonnet reviewer is already cross-tier). Route persona by artifact: `prompt-reviewer` for `.md`/instruction edits, `code-reviewer` for shell/JSON/settings edits. (Escalation, not default: `codex` via MCP for cross-vendor eyes on a contested round.) Batch independent candidates into parallel dispatches.
+3. Act on the verdict per candidate (a candidate is **ungrounded** when the release-note claim or the 7.5b-derived edit does not hold against the actual current file contents):
+   - **Clean** → keep as-is; verdict = "reviewed, clean".
+   - **Fixable concern** → revise the **proposed** edit (revising a proposal is NOT applying it) and mark it `(revised: <one-line summary of what changed>)`. Re-review the revised version; repeat until a round produces no new material findings. (Applies the discipline of `~/.claude/rules/verify-until-stable.md` at config-edit scope — one clean confirming round suffices for a small bounded edit, vs. the rule's two-round bar for multi-layer investigations.)
+   - **Review argues against the change** (the recommendation is wrong, or it would harm the setup) → keep it in the list but mark it `⚠ review recommends against` with the one-line reason. Do NOT silently drop it — the user decides.
+   - **Premise is false / ungrounded** → drop the candidate and briefly note why when you present the vetted list in 7.5d (so the user sees what was filtered and the reason).
+
+### 7.5d — Present the vetted numbered list
+
+Present the surviving candidates as a numbered list. Each entry has THREE parts: the literal technical change, a plain-language "what this does for you" line (medium-technical, no jargon), and the fresh-eyes **verdict**:
 
 ```
-Proposed config changes:
+Proposed config changes (each independently reviewed):
 
   N. <file(s)> — <literal technical change>
      → What this does for you: <plain-language implication, 1-2 sentences>
+     → Review: <clean | revised: what changed | ⚠ recommends against: reason>
 
 Reply with numbers to apply ("1 3"), "all", or "none".
-Or "fresheyes" / "fresheyes 1 3" to run an independent review first.
 ```
 
 Then STOP and wait for the user's reply. Apply NOTHING before the user responds.
 
-### 7.5d — Handle the reply
+### 7.5e — Handle the reply
 
 - **`none`** → apply nothing; continue to Step 8.
-- **numbers / `all`** → apply exactly the selected proposals (7.5e), log them (7.5f), then continue to Step 8.
-- **`fresheyes` / `fresheyes <numbers>`** → run a fresh-eyes review (7.5g), then re-present 7.5c and wait again.
+- **numbers / `all`** → apply exactly the selected proposals (7.5f), log them (7.5g), then continue to Step 8.
 
-### 7.5e — Apply selected edits
+### 7.5f — Apply selected edits
 
 For each selected proposal:
 1. Make the edit with Edit/Write.
 2. Validate immediately: `jq empty <file>` for any JSON (e.g. settings.json); `bash -n <file>` for any shell script. Then `chmod +x` any new script (a setup action, not a validation check — its failure is not a revert trigger).
 3. If validation fails, revert that single edit and report it as failed — do not abort the others.
 
-### 7.5f — Log to the cumulative changelog
+### 7.5g — Log to the cumulative changelog
 
 Append the applied changes to `~/.claude/whats-new-applied.md` (create if missing) under a `## v{to_version} — {YYYY-MM-DD}` heading: one bullet per applied change (file + literal change + the release it came from). This is the cumulative audit trail of how the config has evolved release-over-release. Then remind the user that `~/.claude/` edits are committed via `cd ~/.claude && /commit` — do NOT auto-commit.
-
-### 7.5g — Fresh-eyes review
-
-Construct a synthetic diff for each selected proposal from its 7.5b derivation (the literal before → after change) — nothing has been applied yet, so there is no filesystem diff to read. Dispatch an independent reviewer with the Task tool, pasting that synthetic diff **inline as literal text** in the prompt (per `mcp-arg-no-substitution.md` — never `$(...)`; if the diff itself contains `$(...)` shell code, include the `LITERAL_DOLLAR_PAREN_OK` sentinel). **Default model: `sonnet`** — matches the platform review-agent convention and fits small config/script/markdown diffs; the fresh-eyes value comes from the independent dispatch, not a higher tier (the proposer is Opus, so a Sonnet reviewer is already cross-tier). Route the persona by artifact: `prompt-reviewer` for `.md` / instruction-file edits, `code-reviewer` for shell / JSON / settings edits. (Escalation, not default: if a second round is contested, dispatch `codex` via MCP for cross-vendor eyes.)
-
-After the review returns, present a **plain-language narrative per proposal** — what the reviewer checked and what it found (issues, risks, or "clean"). If the review surfaces a concern, you MAY revise the **proposed** edit in response — revising a proposal is NOT applying it; the user still approves by number — and mark it `(revised)` when you re-present 7.5c. Then give an explicit **convergence recommendation**:
-- If you revised a proposal in response to findings → recommend ONE more fresheyes round on the revised version: "reply `fresheyes <n>` to re-check, or `<n>` to apply as-is."
-- If the round surfaced **nothing new** (or only confirmed prior fixes) → state it has **converged** and you are comfortable applying.
-
-Stop condition (mirrors `~/.claude/rules/verify-until-stable.md`): stop re-reviewing when a round produces no new material findings. Then return to the 7.5c prompt for the user's final pick.
 
 ---
 
