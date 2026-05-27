@@ -15,7 +15,7 @@
         "url": "https://github.com/bradfeld/whats-new-plugin.git"
       },
       "description": "Cross-reference Claude Code release notes against your personal config — surfaces what actually affects your setup, recommends new features worth adopting, and summarizes the rest",
-      "version": "1.0.0"
+      "version": "1.1.0"
     }
   ]
 }
