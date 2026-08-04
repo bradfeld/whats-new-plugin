@@ -1,1 +1,7 @@
 .DS_Store
+
+# Secrets. Nothing has leaked here — this is preventive. A .env is the usual
+# place credentials land locally, and there was no rule stopping a commit.
+.env
+.env.*
+!.env.example
